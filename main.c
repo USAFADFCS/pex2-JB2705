@@ -1,7 +1,7 @@
 /** main.c
  * ===========================================================
- * Name: <Last Name, First Name>
- * Section: <Section>
+ * Name: Jack Barnett
+ * Section: M3
  * Project: PEX2 - CPU Scheduling Simulator
  * Purpose: Entry point for the multi-threaded CPU scheduling simulator.
  *          Reads simulation parameters from command-line arguments or
@@ -15,7 +15,7 @@
  * Documentation Statement: <describe any help received>
  * ===========================================================
  * ======================================================================
- * Required Features Not Included:1
+ * Required Features Not Included:
  *       1)
  *       2)
  *       3)
