@@ -110,9 +110,7 @@ void* SJFcpu(void* param) {
     Process* p = NULL;  
 
     while (1) {
-        sem_wait(svars->cpuSems[threadNum]);
-
-               // ── Sync point 1: wait for main to start this timestep ──────────
+        // ── Sync point 1: wait for main to start this timestep ──────────
         // main() posts cpuSems[threadNum] once per tick.  We block here
         // until that post arrives, keeping this CPU in lockstep with the clock.
         sem_wait(svars->cpuSems[threadNum]);
@@ -129,6 +127,7 @@ void* SJFcpu(void* param) {
             // SJF Selection rule is to pick the process with the shortest time in the ready queue
             int shortestPos = qShortest(&(svars->readyQ));
             p = qRemove(&(svars->readyQ), shortestPos);
+            //^^may have to check for null value in shortestPos
 
             if (p == NULL) {
                 // readyQ was empty — CPU stays idle this tick.
