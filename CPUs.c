@@ -261,6 +261,8 @@ void* RRcpu(void* param) {
             // thread (or main inserting a new arrival) could touch it right now.
             pthread_mutex_lock(&(svars->readyQLock));
 
+            p->requeued = true; //set requeued to true
+
             qInsert(&(svars->readyQ),p); //put the current process back into the back of the ready queue
 
             p = NULL; //set to signal the next process to get picked
@@ -274,11 +276,13 @@ void* RRcpu(void* param) {
             } else {
                 printf("Scheduling PID %d\n", p->PID);
             }
-
-            pthread_mutex_unlock(&(svars->readyQLock));
             */
 
             currQuantum = quantum; //reset the quantum count
+
+            pthread_mutex_unlock(&(svars->readyQLock));
+        
+            
         }
 
         // ── Selection ───────────────────────────────────
