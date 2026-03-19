@@ -162,7 +162,7 @@ void* SJFcpu(void* param) {
 }
 
 // ============================================================
-// NPP — Non-Preemptive Priority (WIP->Copied code from FIFO)
+// NPP — Non-Preemptive Priority 
 // Runs each process to completion; selects the process with the
 // highest priority (lowest-numbered priority value) from the queue.
 // Remember: lower priority number = higher priority.
@@ -231,7 +231,7 @@ void* NPPcpu(void* param) {
 }
 
 // ============================================================
-// RR — Round Robin (quantum-based preemption)
+// RR — Round Robin (WIP->Copied code from FIFO)
 // Runs a process for at most 'quantum' timesteps before requeuing
 // it; always selects from the head of the ready queue.
 // ============================================================
@@ -239,15 +239,96 @@ void* RRcpu(void* param) {
     int threadNum = ((CpuParams*) param)->threadNumber;
     SharedVars* svars = ((CpuParams*) param)->svars;
 
-    // Process* p = NULL;  // TODO: uncomment when you implement this function
+    //set variables for tracking the quantums
+    int quantum = svars->quantum;
+    int currQuantum = quantum;
 
+    // p is the process currently running on this CPU.
+    // p == NULL means the CPU is idle and must pick a new process from readyQ.
+    Process* p = NULL;
+
+    // This thread runs forever — one loop iteration = one simulation timestep.
     while (1) {
+        // ── Sync point 1: wait for main to start this timestep ──────────
+        // main() posts cpuSems[threadNum] once per tick.  We block here
+        // until that post arrives, keeping this CPU in lockstep with the clock.
         sem_wait(svars->cpuSems[threadNum]);
 
+        //preemptive-chech the quantum
+        if (p!=NULL && currQuantum <=0){ //if the quantum has expired
+            
+            // Lock readyQ before inspecting or modifying it — another CPU
+            // thread (or main inserting a new arrival) could touch it right now.
+            pthread_mutex_lock(&(svars->readyQLock));
+
+            qInsert(&(svars->readyQ),p); //put the current process back into the back of the ready queue
+
+            p = qRemove(&(svars->readyQ), 0); //set the current process to the one at the head of the queue
+
+            if (p == NULL) {
+                // readyQ was empty — CPU stays idle this tick.
+                printf("No process to schedule\n");
+            } else {
+                printf("Scheduling PID %d\n", p->PID);
+            }
+
+            pthread_mutex_unlock(&(svars->readyQLock));
+
+            currQuantum = quantum; //reset the quantum count
+        }
+
+        // ── Selection ───────────────────────────────────
+        // RR is quantum based, essentially pre-emptive. 
+        // It selects whatever process is at the head of the queue after each quantum is complete.
+        if (p == NULL) {; 
+            // Lock readyQ before inspecting or modifying it — another CPU
+            // thread (or main inserting a new arrival) could touch it right now.
+            pthread_mutex_lock(&(svars->readyQLock));
+
+            // Index 0 = head of the list = the process that has been waiting
+            // the longest (qInsert always appends to the tail, so the head is
+            // always the oldest arrival — that is the RR selection rule).
+            p = qRemove(&(svars->readyQ), 0);
+
+            if (p == NULL) {
+                // readyQ was empty — CPU stays idle this tick.
+                printf("No process to schedule\n");
+            } else {
+                printf("Scheduling PID %d\n", p->PID);
+            }
+
+            pthread_mutex_unlock(&(svars->readyQLock));
+        }
+
+        // ── Execution: one unit of work ──────────────────────────────────
+        // If we have a process (carried over from a prior tick or just
+        // selected above), burn one unit of its remaining CPU burst.
+        if (p != NULL) {
+                
+            p->burstRemaining--;
+            
+            //decrement the quantum running
+            currQuantum--;
+
+            if (p->burstRemaining == 0) {
+                // Process is done — move it to finishedQ so main can
+                // compute and print wait-time statistics at simulation end.
+                pthread_mutex_lock(&(svars->finishedQLock));
+                qInsert(&(svars->finishedQ), p);
+                pthread_mutex_unlock(&(svars->finishedQLock));
+
+                // CPU is now idle; it will select a new process next tick.
+                p = NULL;
+            }
+
+        }
+
+        // ── Sync point 2: signal main that this CPU is done ─────────────
+        // main() waits on mainSem once per CPU per tick.  Posting here
+        // tells main this CPU has finished its work for the current timestep.
         sem_post(svars->mainSem);
     }
 }
-
 // ============================================================
 // SRTF — Shortest Remaining Time First (preemptive)
 // Preempts the running process whenever a shorter job is in the
