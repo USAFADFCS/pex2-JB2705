@@ -371,6 +371,7 @@ void* SRTFcpu(void* param) {
 
             if (shortestBurst < p->burstRemaining){//if a shorter burst remaining compared to the current process exists in the ready queue
                 
+                p->requeued = true; //set requeued to true
                 qInsert(&(svars->readyQ),p);//put the current process back in the queue
                 p = NULL; //signal to pick a new process
                 /*
